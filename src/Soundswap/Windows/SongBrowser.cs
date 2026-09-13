@@ -63,7 +63,7 @@ public sealed class SongBrowser(Studio studio)
         DrawList(listSize);
 
         var named = studio.CatalogSource.Length > 0 ? $" · names from {studio.CatalogSource}" : "";
-        Ui.TextColored(Ui.Muted, results.Count == count ? $"{count:N0} songs{named}" : $"{results.Count:N0} of {count:N0} songs{named}");
+        Ui.TextColored(Ui.Muted, Ui.Ellipsize(results.Count == count ? $"{count:N0} songs{named}" : $"{results.Count:N0} of {count:N0} songs{named}", width));
     }
 
     private void Refresh()

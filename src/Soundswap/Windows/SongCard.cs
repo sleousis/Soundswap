@@ -44,7 +44,7 @@ public sealed class SongCard(Studio studio, FileDialogManager dialogs, IDragDrop
         using var id = ImRaii.PushId(song.Id.ToString());
         var selected = studio.Selected == song.BgmId;
         using var card = new Card(width, selected ? Ui.Mix(Ui.InkRaised, Ui.Accent, 0.1f) : Ui.InkRaised, selected ? Ui.Fade(Ui.Accent, 0.6f) : Ui.InkLine);
-        Header(song, card.Inner);
+        Header(song);
         if (!open.Contains(song.Id)) return;
 
         Ui.Gap(0.4f);
@@ -55,7 +55,7 @@ public sealed class SongCard(Studio studio, FileDialogManager dialogs, IDragDrop
         Footer(song);
     }
 
-    private void Header(SongReplacement song, float width)
+    private void Header(SongReplacement song)
     {
         var info = studio.Catalog.ById(song.BgmId);
         var facts = studio.Facts(song.BgmId, song.GamePath);
@@ -67,12 +67,18 @@ public sealed class SongCard(Studio studio, FileDialogManager dialogs, IDragDrop
             studio.Selected = song.BgmId;
         }
         ImGui.SameLine();
-        var start = ImGui.GetCursorPosX();
-        var buttonsW = ImGui.GetFrameHeight() * 2 + ImGui.GetStyle().ItemSpacing.X * 2;
+        var titleX = ImGui.GetCursorScreenPos().X;
+        var spacing = ImGui.GetStyle().ItemSpacing.X;
+        var buttonsW = Math.Max(Ui.IconButtonWidth(FontAwesomeIcon.Play), Ui.IconButtonWidth(FontAwesomeIcon.Stop))
+            + Math.Max(Ui.IconButtonWidth(FontAwesomeIcon.Trash), Ui.IconButtonWidth(FontAwesomeIcon.Check)) + spacing * 2;
         var missing = song.Missing();
         var status = missing is null ? ("Ready", Ui.Ok) : ("Needs a file", Ui.Warn);
-        var chipW = ImGui.CalcTextSize(status.Item1).X + 16 * Ui.Scale + (song.IsLayered ? ImGui.CalcTextSize($"{song.LayerCount} layers").X + 22 * Ui.Scale : 0);
-        var titleW = width - start - buttonsW - chipW + ImGui.GetCursorStartPos().X;
+        var layers = $"{song.LayerCount} layers";
+        var layersW = song.IsLayered ? Ui.ChipWidth(layers, FontAwesomeIcon.LayerGroup) + spacing : 0;
+        var titleW = Ui.RightEdge() - buttonsW - titleX - Ui.ChipWidth(status.Item1) - spacing - layersW;
+        // A narrow card keeps room for the title; how many layers a song has shows in the song list as well.
+        var showLayers = song.IsLayered && titleW >= 60 * Ui.Scale;
+        if (!showLayers) titleW += layersW;
 
         ImGui.BeginGroup();
         ImGui.AlignTextToFramePadding();
@@ -84,14 +90,14 @@ public sealed class SongCard(Studio studio, FileDialogManager dialogs, IDragDrop
         }
         ImGui.EndGroup();
         ImGui.SameLine();
-        if (song.IsLayered)
+        if (showLayers)
         {
-            Ui.Chip($"{song.LayerCount} layers", Ui.Info, FontAwesomeIcon.LayerGroup, "A layered song: the game fades between its layers during play. Choose what each one gets below.");
+            Ui.Chip(layers, Ui.Info, FontAwesomeIcon.LayerGroup, "A layered song: the game fades between its layers during play. Choose what each one gets below.");
             ImGui.SameLine();
         }
         Ui.Chip(status.Item1, status.Item2, tooltip: missing);
 
-        ImGui.SameLine(ImGui.GetCursorStartPos().X + width - buttonsW + ImGui.GetStyle().ItemSpacing.X);
+        Ui.SameLineAt(Ui.RightEdge() - buttonsW + spacing);
         var key = $"orig:{song.BgmId}";
         var playing = studio.Player.Playing == key;
         if (Ui.IconButton("orig", playing ? FontAwesomeIcon.Stop : FontAwesomeIcon.Play, playing ? "Stop" : "Hear the game's version", facts?.Problem is null, active: playing))
@@ -112,8 +118,8 @@ public sealed class SongCard(Studio studio, FileDialogManager dialogs, IDragDrop
 
         var sub = info?.Locations is { Length: > 0 } places ? places.ReplaceLineEndings(" · ") : song.GamePath;
         if (facts?.Seconds > 0) sub = $"{Naming.Time(facts.Seconds)} · {sub}";
-        ImGui.SetCursorPosX(start);
-        Ui.TextColored(Ui.Muted, Ui.Ellipsize(sub, width - start + ImGui.GetCursorStartPos().X));
+        ImGui.SetCursorScreenPos(new Vector2(titleX, ImGui.GetCursorScreenPos().Y));
+        Ui.TextColored(Ui.Muted, Ui.Ellipsize(sub, Ui.RightEdge() - titleX));
     }
 
     private void FileSlot(SongReplacement song, float width)
@@ -128,7 +134,8 @@ public sealed class SongCard(Studio studio, FileDialogManager dialogs, IDragDrop
         var src = studio.Source(path);
         Ui.Icon(FontAwesomeIcon.FileAudio, Ui.AccentSoft);
         ImGui.SameLine();
-        var buttons = ImGui.GetFrameHeight() * 3 + ImGui.GetStyle().ItemSpacing.X * 3;
+        var buttons = Math.Max(Ui.IconButtonWidth(FontAwesomeIcon.Play), Ui.IconButtonWidth(FontAwesomeIcon.Stop))
+            + Ui.IconButtonWidth(FontAwesomeIcon.FolderOpen) + Ui.IconButtonWidth(FontAwesomeIcon.Times) + ImGui.GetStyle().ItemSpacing.X * 3;
         ImGui.BeginGroup();
         ImGui.TextUnformatted(Ui.Ellipsize(Path.GetFileName(path), width - buttons - 30 * Ui.Scale));
         if (src is null || !src.Ready)
@@ -147,7 +154,7 @@ public sealed class SongCard(Studio studio, FileDialogManager dialogs, IDragDrop
         }
         ImGui.EndGroup();
         Ui.Tooltip(path);
-        ImGui.SameLine(ImGui.GetCursorStartPos().X + width - buttons + 6 * Ui.Scale);
+        Ui.SameLineAt(Ui.RightEdge() - buttons + ImGui.GetStyle().ItemSpacing.X);
         var key = $"src:{song.Id}";
         var playing = studio.Player.Playing == key;
         if (Ui.IconButton("play", playing ? FontAwesomeIcon.Stop : FontAwesomeIcon.Play, playing ? "Stop" : "Hear it as the game will play it (volume matched, trimmed)", src is { Ready: true, Error: null }, active: playing))
@@ -259,11 +266,14 @@ public sealed class SongCard(Studio studio, FileDialogManager dialogs, IDragDrop
         {
             using var lid = ImRaii.PushId($"layer{layer}");
             var choice = song.Layer(layer);
+            var rowX = ImGui.GetCursorScreenPos().X;
+            var labelW = 70 * Ui.Scale;
             ImGui.AlignTextToFramePadding();
             ImGui.TextUnformatted($"Layer {layer + 1}");
-            ImGui.SameLine(70 * Ui.Scale + ImGui.GetCursorStartPos().X);
+            Ui.SameLineAt(rowX + labelW);
             var source = (int)choice.Source;
-            if (Ui.Segmented("src", LayerSources, ref source, 210 * Ui.Scale))
+            var switchW = Math.Clamp(width - labelW - Ui.IconButtonWidth(FontAwesomeIcon.Headphones) - ImGui.GetStyle().ItemSpacing.X, 120 * Ui.Scale, 210 * Ui.Scale);
+            if (Ui.Segmented("src", LayerSources, ref source, switchW))
             {
                 choice.Source = (LayerSource)source;
                 studio.Changed();
@@ -275,10 +285,13 @@ public sealed class SongCard(Studio studio, FileDialogManager dialogs, IDragDrop
                 studio.PreviewOriginal(key, song.GamePath, layer);
             if (choice.Source != LayerSource.Song) continue;
 
-            ImGui.SameLine();
+            var undoW = choice.Path is null ? 0 : Ui.IconButtonWidth(FontAwesomeIcon.Undo) + ImGui.GetStyle().ItemSpacing.X;
+            // On a narrow card the file goes on its own line under the switch instead of shrinking to a sliver.
+            Ui.SameLineIfFits(140 * Ui.Scale + undoW);
+            if (ImGui.GetCursorScreenPos().X < rowX + labelW) ImGui.SetCursorScreenPos(new Vector2(rowX + labelW, ImGui.GetCursorScreenPos().Y));
             var file = choice.Path ?? song.SourcePath;
             var label = choice.Path is null ? (song.SourcePath is null ? "Choose a file…" : $"Main song ({Path.GetFileName(song.SourcePath)})") : Path.GetFileName(choice.Path);
-            var rest = ImGui.GetContentRegionAvail().X - (choice.Path is null ? 0 : ImGui.GetFrameHeight() + ImGui.GetStyle().ItemSpacing.X);
+            var rest = Ui.AvailX() - undoW;
             if (Ui.Button("file", Ui.Ellipsize(label, rest - 40 * Ui.Scale), FontAwesomeIcon.FolderOpen, width: rest, tooltip: file ?? "Choose the song for this layer")) Browse(song, layer);
             if (dragDrop.CreateImGuiTarget("SoundswapAudio", out var files, out _) && files.FirstOrDefault(AudioFiles.LooksLikeAudio) is { } dropped)
                 studio.SetFile(song, dropped, layer);
@@ -309,7 +322,7 @@ public sealed class SongCard(Studio studio, FileDialogManager dialogs, IDragDrop
             }
             studio.Changed();
         }
-        ImGui.SameLine();
+        Ui.SameLineIfFits(Ui.ButtonWidth("Hear the loop", FontAwesomeIcon.Headphones));
         var hearKey = $"loop:{song.Id}";
         var canHear = song.Loop != LoopMode.None && src is { Ready: true, Error: null } && song.SourcePath is not null;
         if (Ui.Button("hearloop", studio.Player.Playing == hearKey ? "Stop" : "Hear the loop", FontAwesomeIcon.Headphones, enabled: canHear,
@@ -372,15 +385,19 @@ public sealed class SongCard(Studio studio, FileDialogManager dialogs, IDragDrop
             studio.Changed();
         }
         Ui.Tooltip("Measures both songs (LUFS, like streaming services) and sets yours to the loudness of the one it replaces, so it doesn't blast or vanish.");
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+        // A drag field like Trim's, so no slider handle sits over the text; at the card's right edge, or on its own
+        // line when the card is too narrow for both.
+        var gainW = Math.Min(200 * Ui.Scale, width);
+        Ui.SameLineIfFits(gainW + 16 * Ui.Scale);
+        ImGui.SetCursorScreenPos(new Vector2(Ui.RightEdge() - gainW, ImGui.GetCursorScreenPos().Y));
+        ImGui.SetNextItemWidth(gainW);
         var gain = song.ExtraGainDb;
-        if (ImGui.SliderFloat("##gain", ref gain, -12, 12, gain == 0 ? "No extra change" : $"{gain:+0.0;-0.0} dB"))
+        if (ImGui.DragFloat("##gain", ref gain, 0.05f, -12, 12, MathF.Abs(gain) < 0.05f ? "No extra change" : $"{gain:+0.0;-0.0} dB"))
         {
-            song.ExtraGainDb = MathF.Round(gain * 2) / 2;
+            song.ExtraGainDb = Math.Clamp(gain, -12, 12);
             studio.Changed();
         }
-        Ui.Tooltip("Louder or quieter on top of that. Double-click to type; 0 keeps it as matched.");
+        Ui.Tooltip("Louder or quieter on top of that: drag, or double-click to type. Right double-click puts it back to no change.");
         if (ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Right))
         {
             song.ExtraGainDb = 0;

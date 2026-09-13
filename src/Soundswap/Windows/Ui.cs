@@ -140,6 +140,13 @@ public static class Ui
 
     public static float EaseOut(float t) => 1f - (1f - t) * (1f - t);
 
+    /// <summary>
+    /// A motion key unique to where a widget is drawn. Widgets repeat with the same id under different ImGui ids
+    /// (every layer row has a "src" switch, every card a "play" button); keyed by the bare id they would all share
+    /// one animated value, and each would drag it towards its own target.
+    /// </summary>
+    private static string Scoped(string kind, string id) => $"{kind}:{ImGui.GetID(id)}";
+
     /// <summary>Hover of the last frame, eased. Call RecordHover right after the item.</summary>
     public static float Hover(string id) => Smooth("hover:" + id, hoverLast.GetValueOrDefault(id) ? 1f : 0f, 16f);
     public static void RecordHover(string id) => hoverLast[id] = ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled);
@@ -218,6 +225,61 @@ public static class Ui
         public void Dispose() { ImGui.EndTooltip(); style.Dispose(); }
     }
 
+    // ---------- layout ----------
+
+    private static readonly Stack<float> rights = new();
+
+    /// <summary>
+    /// Width left on the current line. Inside a card it ends at the card's padding: ImGui's own content region runs
+    /// on to the edge of the panel behind the card, so "the rest of the line" would spill out of it.
+    /// </summary>
+    public static float AvailX() => rights.TryPeek(out var r) ? r - ImGui.GetCursorScreenPos().X : ImGui.GetContentRegionAvail().X;
+
+    /// <summary>The screen x where the current card's content, or else the window's, ends.</summary>
+    public static float RightEdge() => rights.TryPeek(out var r) ? r : ImGui.GetWindowPos().X + ImGui.GetWindowContentRegionMax().X;
+
+    internal static void PushRight(float screenX) => rights.Push(screenX);
+    internal static void PopRight() => rights.Pop();
+
+    /// <summary>Stays on this line when an item <paramref name="width"/> wide still fits, otherwise starts the next.</summary>
+    public static void SameLineIfFits(float width)
+    {
+        ImGui.SameLine();
+        if (AvailX() < width) ImGui.NewLine();
+    }
+
+    /// <summary>
+    /// Continues the line at a screen x. ImGui's SameLine(x) counts from the enclosing group, so positions worked
+    /// out from the window's edges land too far right inside one.
+    /// </summary>
+    public static void SameLineAt(float screenX)
+    {
+        ImGui.SameLine();
+        ImGui.SetCursorScreenPos(new Vector2(screenX, ImGui.GetCursorScreenPos().Y));
+    }
+
+    /// <summary>How wide <see cref="Button"/> draws this text and icon when given no width.</summary>
+    public static float ButtonWidth(string text, FontAwesomeIcon? icon = null)
+    {
+        var iconW = icon is { } ic ? IconWidth(ic) : 0f;
+        var gap = icon is not null && text.Length > 0 ? 6f * Scale : 0f;
+        return iconW + gap + (text.Length > 0 ? ImGui.CalcTextSize(text).X : 0f) + ButtonPadX(text) * 2;
+    }
+
+    /// <summary>How wide <see cref="IconButton"/> draws: square, or a little wider for a wide glyph.</summary>
+    public static float IconButtonWidth(FontAwesomeIcon icon) => Math.Max(ImGui.GetFrameHeight(), ButtonWidth("", icon));
+
+    /// <summary>Icon-only buttons get slim padding, so they come out square rather than wider than they are tall.</summary>
+    private static float ButtonPadX(string text) => text.Length == 0 ? 4f * Scale : ImGui.GetStyle().FramePadding.X;
+
+    /// <summary>How wide <see cref="Chip"/> draws this text and icon.</summary>
+    public static float ChipWidth(string text, FontAwesomeIcon? icon = null)
+    {
+        var iconW = icon is { } ic ? IconWidth(ic) : 0f;
+        var gap = icon is not null && text.Length > 0 ? 5f * Scale : 0f;
+        return 14f * Scale + iconW + gap + ImGui.CalcTextSize(text).X;
+    }
+
     // ---------- widgets ----------
 
     /// <summary>A button with an optional icon, drawn by hand so icon and text sit together. Primary ones are filled with the accent.</summary>
@@ -230,11 +292,12 @@ public static class Ui
         var textW = text.Length > 0 ? ImGui.CalcTextSize(text).X : 0f;
         var gap = icon is not null && text.Length > 0 ? 6f * Scale : 0f;
         var content = iconW + gap + textW;
-        var size = new Vector2(Math.Max(width, content + style.FramePadding.X * 2), ImGui.GetFrameHeight());
+        var size = new Vector2(Math.Max(width, content + ButtonPadX(text) * 2), ImGui.GetFrameHeight());
 
-        var key = "btn:" + id;
+        var key = Scoped("btn", id);
         var hover = enabled ? Hover(key) : 0f;
-        var baseColor = primary ? Accent : Mix(InkRaised, tint ?? Accent, 0.1f);
+        // Lifted enough to read as a button on a card as well as on the window.
+        var baseColor = primary ? Accent : Mix(InkRaised, tint ?? Accent, 0.18f);
         var bg = primary ? Mix(Accent, AccentSoft, hover * 0.35f) : Mix(baseColor, tint ?? Accent, hover * 0.3f);
         bool clicked;
         using (ImRaii.PushColor(ImGuiCol.Button, bg).Push(ImGuiCol.ButtonHovered, bg).Push(ImGuiCol.ButtonActive, Mix(bg, Ink, 0.25f)))
@@ -271,7 +334,7 @@ public static class Ui
         var iconW = icon is { } ic ? IconWidth(ic) : 0f;
         var gap = icon is not null && text.Length > 0 ? 5f * Scale : 0f;
         var h = ImGui.GetFrameHeight() * 0.82f;
-        var size = new Vector2(pad * 2 + iconW + gap + ImGui.CalcTextSize(text).X, h);
+        var size = new Vector2(ChipWidth(text, icon), h);
         var pos = ImGui.GetCursorScreenPos() + new Vector2(0, (ImGui.GetFrameHeight() - h) / 2);
         ImGui.Dummy(new Vector2(size.X, ImGui.GetFrameHeight()));
         var dl = ImGui.GetWindowDrawList();
@@ -294,7 +357,7 @@ public static class Ui
         var h = ImGui.GetFrameHeight();
         var natural = labels.Select(l => ImGui.CalcTextSize(l).X + pad * 2).ToArray();
         var total = natural.Sum();
-        var avail = width > 0 ? width : ImGui.GetContentRegionAvail().X;
+        var avail = width > 0 ? width : AvailX();
         var widths = total <= avail && width <= 0 ? natural : Enumerable.Repeat(avail / labels.Count, labels.Count).ToArray();
         var full = widths.Sum();
 
@@ -303,8 +366,9 @@ public static class Ui
         dl.AddRectFilled(pos, pos + new Vector2(full, h), Col(InkDeep), 5f * Scale);
 
         var targetX = widths.Take(Math.Clamp(selected, 0, labels.Count - 1)).Sum();
-        var thumbX = Smooth($"seg:{id}:x", targetX, 18f);
-        var thumbW = Smooth($"seg:{id}:w", widths[Math.Clamp(selected, 0, labels.Count - 1)], 18f);
+        var key = Scoped("seg", id);
+        var thumbX = Smooth(key + ":x", targetX, 18f);
+        var thumbW = Smooth(key + ":w", widths[Math.Clamp(selected, 0, labels.Count - 1)], 18f);
         dl.AddRectFilled(pos + new Vector2(thumbX + 2 * Scale, 2 * Scale), pos + new Vector2(thumbX + thumbW - 2 * Scale, h - 2 * Scale), Col(Accent), 4f * Scale);
 
         var changed = false;
@@ -352,7 +416,7 @@ public static class Ui
         }
         TextColored(Muted, title.ToUpperInvariant());
         var min = ImGui.GetItemRectMax();
-        var right = ImGui.GetWindowPos().X + ImGui.GetWindowContentRegionMax().X;
+        var right = RightEdge();
         ImGui.GetWindowDrawList().AddLine(new Vector2(min.X + 8 * Scale, min.Y - ImGui.GetTextLineHeight() / 2), new Vector2(right, min.Y - ImGui.GetTextLineHeight() / 2), Col(InkLine));
     }
 
@@ -383,7 +447,9 @@ public static class Ui
 
 /// <summary>
 /// A card: content drawn first into the front channel, then the background sized to it behind (dalamud:ui).
-/// Use <see cref="Inner"/> for widths inside it.
+/// Nothing inside reaches past its padding: size things with <see cref="Inner"/> or <see cref="Ui.AvailX"/>, and
+/// whatever still would is clipped at the card's edge. Fields inside use the darker well colour, so they stand out
+/// from the card instead of melting into it.
 /// </summary>
 public sealed class Card : IDisposable
 {
@@ -392,6 +458,7 @@ public sealed class Card : IDisposable
     private readonly float width;
     private readonly Vector4 background;
     private readonly Vector4 edge;
+    private readonly IDisposable fields;
     private readonly float pad = 12f * Ui.Scale;
 
     public Card(float width, Vector4? background = null, Vector4? edge = null)
@@ -403,6 +470,11 @@ public sealed class Card : IDisposable
         dl.ChannelsSplit(2);
         dl.ChannelsSetCurrent(1);
         start = ImGui.GetCursorScreenPos();
+        ImGui.PushClipRect(start, start + new Vector2(width, 100000f), true);
+        Ui.PushRight(start.X + pad + Inner);
+        fields = ImRaii.PushColor(ImGuiCol.FrameBg, Ui.InkDeep)
+            .Push(ImGuiCol.FrameBgHovered, Ui.Mix(Ui.InkDeep, Ui.Accent, 0.22f))
+            .Push(ImGuiCol.FrameBgActive, Ui.Mix(Ui.InkDeep, Ui.Accent, 0.35f));
         ImGui.SetCursorScreenPos(start + new Vector2(pad, pad));
         ImGui.BeginGroup();
         ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + Inner);
@@ -414,6 +486,9 @@ public sealed class Card : IDisposable
     {
         ImGui.PopTextWrapPos();
         ImGui.EndGroup();
+        fields.Dispose();
+        Ui.PopRight();
+        ImGui.PopClipRect();
         var bottom = ImGui.GetItemRectMax().Y + pad;
         dl.ChannelsSetCurrent(0);
         var max = new Vector2(start.X + width, bottom);

@@ -106,50 +106,73 @@ public sealed class MainWindow : Window
         ImGui.SameLine();
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted("Soundswap");
-        ImGui.SameLine();
-        Ui.TextColored(Ui.Muted, page == Page.Settings ? "Settings" : "Your songs in the game's place");
 
-        // Right side: warnings about what is missing, and what is playing now.
-        var right = ImGui.GetCursorStartPos().X + ImGui.GetContentRegionMax().X;
-        var items = new List<Action>();
-        float widthNeeded = 0;
+        // Right side: what is missing, and what is playing now. Everything is measured first so the row never runs
+        // past the window's edge: the song's name shortens, and the subtitle makes way.
+        var spacing = ImGui.GetStyle().ItemSpacing.X;
+        var right = Ui.RightEdge();
+        var titleEnd = ImGui.GetItemRectMax().X + spacing;
+        var items = new List<(float Width, Action Draw)>();
         if (!studio.PenumbraReady)
         {
-            widthNeeded += ImGui.CalcTextSize("Penumbra isn't loaded").X + 40 * Ui.Scale;
-            items.Add(() => Ui.Chip("Penumbra isn't loaded", Ui.Warn, FontAwesomeIcon.ExclamationTriangle, "Soundswap can still build mods and save them as .pmp files. Load Penumbra to install them straight away."));
+            const string warning = "Penumbra isn't loaded";
+            items.Add((Ui.ChipWidth(warning, FontAwesomeIcon.ExclamationTriangle),
+                () => Ui.Chip(warning, Ui.Warn, FontAwesomeIcon.ExclamationTriangle, "Soundswap can still build mods and save them as .pmp files. Load Penumbra to install them straight away.")));
         }
         var playing = studio.NowPlaying != 0 ? studio.Catalog.ById(studio.NowPlaying) : null;
         if (playing is not null && page == Page.Studio)
         {
-            var label = Ui.Ellipsize(playing.Title, 220 * Ui.Scale);
-            widthNeeded += ImGui.CalcTextSize(label).X + ImGui.CalcTextSize("Replace").X + 90 * Ui.Scale;
-            items.Add(() =>
+            var inMod = studio.Project.Find(playing.Id) is not null;
+            var buttonText = inMod ? "Show" : "Replace";
+            var buttonIcon = inMod ? FontAwesomeIcon.Eye : FontAwesomeIcon.ExchangeAlt;
+            var buttonW = Ui.ButtonWidth(buttonText, buttonIcon);
+            var others = items.Sum(i => i.Width + spacing);
+            var room = right - titleEnd - 20 * Ui.Scale - others - buttonW - spacing - Ui.ChipWidth("", FontAwesomeIcon.Music) - 5 * Ui.Scale;
+            var label = Ui.Ellipsize(playing.Title, Math.Min(220 * Ui.Scale, room));
+            if (label.Length > 1)
             {
-                Ui.Chip(label, Ui.AccentSoft, FontAwesomeIcon.Music, "Playing now (from Orchestrion)");
-                ImGui.SameLine();
-                var inMod = studio.Project.Find(playing.Id) is not null;
-                if (Ui.Button("replacenow", inMod ? "Show" : "Replace", inMod ? FontAwesomeIcon.Eye : FontAwesomeIcon.ExchangeAlt, primary: !inMod,
-                        tooltip: inMod ? "It's in your mod: show it." : "Add the song that is playing right now to your mod."))
-                    studio.Add(playing);
-            });
+                items.Add((Ui.ChipWidth(label, FontAwesomeIcon.Music) + spacing + buttonW, () =>
+                {
+                    Ui.Chip(label, Ui.AccentSoft, FontAwesomeIcon.Music, "Playing now (from Orchestrion): " + playing.Title);
+                    ImGui.SameLine();
+                    if (Ui.Button("replacenow", buttonText, buttonIcon, primary: !inMod,
+                            tooltip: inMod ? "It's in your mod: show it." : "Add the song that is playing right now to your mod."))
+                        studio.Add(playing);
+                }));
+            }
+        }
+        var needed = items.Sum(i => i.Width) + spacing * Math.Max(0, items.Count - 1);
+        var subtitle = page == Page.Settings ? "Settings" : "Your songs in the game's place";
+        if (titleEnd + ImGui.CalcTextSize(subtitle).X + 20 * Ui.Scale <= right - needed)
+        {
+            ImGui.SameLine();
+            Ui.TextColored(Ui.Muted, subtitle);
         }
         if (items.Count > 0)
         {
-            ImGui.SameLine(Math.Max(ImGui.GetCursorPosX() + 20 * Ui.Scale, right - widthNeeded));
+            Ui.SameLineAt(Math.Max(titleEnd, right - needed));
             for (var i = 0; i < items.Count; i++)
             {
                 if (i > 0) ImGui.SameLine();
-                items[i]();
+                items[i].Draw();
             }
         }
 
         if (studio.Notice is { } notice)
         {
+            // Long notices wrap before the button instead of pushing it out of the window.
+            var gotIt = ImGui.CalcTextSize("Got it").X + ImGui.GetStyle().FramePadding.X * 2;
+            ImGui.PushTextWrapPos(ImGui.GetWindowContentRegionMax().X - gotIt - spacing);
             Ui.TextColored(Ui.Warn, notice);
+            ImGui.PopTextWrapPos();
             ImGui.SameLine();
             if (ImGui.SmallButton("Got it")) studio.Notice = null;
         }
-        if (studio.PreviewError is { } error) Ui.TextColored(Ui.Danger, "Preview: " + error);
+        if (studio.PreviewError is { } error)
+        {
+            using var danger = ImRaii.PushColor(ImGuiCol.Text, Ui.Danger);
+            ImGui.TextWrapped("Preview: " + error);
+        }
         Ui.Gap(0.5f);
     }
 }

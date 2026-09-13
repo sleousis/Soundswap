@@ -45,14 +45,15 @@ public sealed class ModEditor(Studio studio, FileDialogManager dialogs, IDragDro
         {
             Ui.TextColored(Ui.Muted, "YOUR MUSIC MOD");
             var name = project.Name;
-            ImGui.SetNextItemWidth(card.Inner - ImGui.GetFrameHeight() - ImGui.GetStyle().ItemSpacing.X);
+            var detailsIcon = details ? FontAwesomeIcon.ChevronUp : FontAwesomeIcon.Pen;
+            ImGui.SetNextItemWidth(card.Inner - Ui.IconButtonWidth(detailsIcon) - ImGui.GetStyle().ItemSpacing.X);
             if (ImGui.InputTextWithHint("##name", "Name it, e.g. My battle music", ref name, 96))
             {
                 project.Name = name;
                 studio.Changed();
             }
             ImGui.SameLine();
-            if (Ui.IconButton("details", details ? FontAwesomeIcon.ChevronUp : FontAwesomeIcon.Pen, details ? "Fewer details" : "Author, version and description")) details = !details;
+            if (Ui.IconButton("details", detailsIcon, details ? "Fewer details" : "Author, version and description")) details = !details;
             if (details)
             {
                 var half = (card.Inner - ImGui.GetStyle().ItemSpacing.X) / 2;
@@ -123,15 +124,19 @@ public sealed class ModEditor(Studio studio, FileDialogManager dialogs, IDragDro
         var total = project.Songs.Count;
         var penumbra = studio.PenumbraReady;
 
-        ImGui.AlignTextToFramePadding();
-        if (total == 0) Ui.TextColored(Ui.Muted, "Add a song to start.");
-        else if (ready == total) Ui.TextColored(Ui.Ok, ready == 1 ? "1 song ready" : $"{ready} songs ready");
-        else Ui.TextColored(Ui.Warn, $"{ready} of {total} ready · {total - ready} {(total - ready == 1 ? "needs" : "need")} a file");
-
+        var spacing = ImGui.GetStyle().ItemSpacing.X;
         var buildLabel = penumbra ? (project.ModDirectory is null ? "Build & install" : "Build & update") : "Build .pmp";
-        var buildW = ImGui.CalcTextSize(buildLabel).X + Ui.IconWidth(FontAwesomeIcon.Magic) + 40 * Ui.Scale;
-        var exportW = ImGui.CalcTextSize("Export .pmp").X + Ui.IconWidth(FontAwesomeIcon.FileExport) + 34 * Ui.Scale;
-        ImGui.SameLine(ImGui.GetCursorStartPos().X + size.X - buildW - exportW - ImGui.GetStyle().ItemSpacing.X);
+        var buildW = Ui.ButtonWidth(buildLabel, FontAwesomeIcon.Magic) + 18 * Ui.Scale;
+        var exportW = Ui.ButtonWidth("Export .pmp", FontAwesomeIcon.FileExport) + 12 * Ui.Scale;
+        var textW = size.X - buildW - exportW - spacing * 3;
+
+        // The count shortens rather than running under the buttons in a narrow window.
+        ImGui.AlignTextToFramePadding();
+        if (total == 0) Ui.TextColored(Ui.Muted, Ui.Ellipsize("Add a song to start.", textW));
+        else if (ready == total) Ui.TextColored(Ui.Ok, Ui.Ellipsize(ready == 1 ? "1 song ready" : $"{ready} songs ready", textW));
+        else Ui.TextColored(Ui.Warn, Ui.Ellipsize($"{ready} of {total} ready · {total - ready} {(total - ready == 1 ? "needs" : "need")} a file", textW));
+
+        Ui.SameLineAt(pos.X + size.X - buildW - exportW - spacing);
         if (Ui.Button("export", "Export .pmp", FontAwesomeIcon.FileExport, enabled: ready > 0, width: exportW, tooltip: "Save the mod as a .pmp file to share or import later."))
         {
             dialogs.SaveFileDialog("Save the mod as", ".pmp", Path.GetFileNameWithoutExtension(studio.DefaultExportPath(project.Name)), ".pmp",
@@ -156,12 +161,13 @@ public sealed class ModEditor(Studio studio, FileDialogManager dialogs, IDragDro
             BuildStage.Encoding => "Encoding",
             _ => "Packing",
         };
+        var x0 = ImGui.GetCursorScreenPos().X;
         ImGui.AlignTextToFramePadding();
         Ui.Spinner(7 * Ui.Scale, Ui.AccentSoft);
         ImGui.SameLine();
         var text = p.Index >= p.Count ? "Putting the mod together…" : $"{stage} “{p.Song}” · song {p.Index + 1} of {p.Count}";
         ImGui.TextUnformatted(Ui.Ellipsize(text, width - 120 * Ui.Scale));
-        ImGui.SameLine(ImGui.GetCursorStartPos().X + width - 90 * Ui.Scale);
+        Ui.SameLineAt(x0 + width - 90 * Ui.Scale);
         if (Ui.Button("cancel", "Cancel", FontAwesomeIcon.Times, width: 90 * Ui.Scale)) studio.CancelBuild();
 
         var pos = ImGui.GetCursorScreenPos();
