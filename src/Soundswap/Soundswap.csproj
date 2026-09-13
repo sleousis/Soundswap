@@ -1,0 +1,40 @@
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <!-- Bump with every release; the release workflow refuses a tag that does not match. -->
+    <Version>0.1.0.0</Version>
+    <Author>Raiden Shinryu</Author>
+    <!-- What players see. AssemblyName below is the InternalName Dalamud tracks the plugin by: pick it once. -->
+    <Name>Soundswap</Name>
+    <Punchline>Swap the game's music for your own songs, right in game.</Punchline>
+    <Description>What the plugin does, in a short paragraph players will read in the installer.
+
+Commands: /soundswap</Description>
+    <RepoUrl>https://github.com/sleousis/Soundswap</RepoUrl>
+    <IconUrl>https://raw.githubusercontent.com/sleousis/Soundswap/main/src/Soundswap/images/icon.png</IconUrl>
+    <Tags>qol</Tags>
+    <RootNamespace>Soundswap</RootNamespace>
+    <AssemblyName>Soundswap</AssemblyName>
+    <LangVersion>14.0</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!--
+      Pin the output path. Without it MSBuild appends the platform whenever it is not AnyCPU, so a solution
+      build (which maps this project to x64) and a project build write different folders, and the dev
+      plugin Dalamud loads from one of them silently goes stale.
+    -->
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Soundswap.Core\Soundswap.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Release notes live in one file; the "what's new" text can read them from here at runtime. -->
+    <EmbeddedResource Include="..\..\CHANGELOG.md" LogicalName="Soundswap.CHANGELOG.md" Visible="false" />
+    <Content Include="images\*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>true</Visible>
+    </Content>
+  </ItemGroup>
+</Project>
