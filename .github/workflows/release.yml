@@ -64,6 +64,22 @@ jobs:
           fi
           echo "tag v$tag matches version $ver"
 
+      # The song names used when Orchestrion isn't installed: its current lists, taken fresh for every release so
+      # nobody has to keep a copy up to date by hand. With Orchestrion installed, Soundswap reads them live.
+      - name: Refresh song names from Orchestrion
+        shell: pwsh
+        run: |
+          foreach ($name in @("en", "de", "fr", "ja", "zh", "metadata")) {
+            $url = "https://raw.githubusercontent.com/perchbirdd/OrchestrionPlugin/HEAD/Orchestrion/Data/xiv_bgm_$name.csv"
+            try { Invoke-WebRequest -Uri $url -OutFile "src/Soundswap/Data/xiv_bgm_$name.csv" }
+            catch { Write-Host "::warning::Could not refresh xiv_bgm_$name.csv; keeping the copy in the repository ($_)" }
+          }
+
+      # Layered songs need the reference libvorbis. It is built here from pinned Xiph sources, never committed.
+      - name: Build the Vorbis encoder
+        shell: cmd
+        run: tools\build-vorbis.cmd
+
       - name: Test
         run: dotnet test tests/Soundswap.Core.Tests/Soundswap.Core.Tests.csproj -c Release --nologo
 
@@ -82,7 +98,8 @@ jobs:
           $zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path "Soundswap.zip"))
           # The packager writes Windows separators into the zip, so normalise before comparing.
           try { $names = @($zip.Entries.FullName).Replace('\', '/') } finally { $zip.Dispose() }
-          foreach ($needed in @("Soundswap.dll", "Soundswap.Core.dll", "Soundswap.json")) {
+          foreach ($needed in @("Soundswap.dll", "Soundswap.Core.dll", "Soundswap.json", "soundswap_vorbis.dll", "NAudio.Core.dll", "NAudio.Wasapi.dll", "NAudio.WinMM.dll",
+                                "NVorbis.dll", "NLayer.dll", "NLayer.NAudioSupport.dll", "OggVorbisEncoder.dll")) {
             if ($names -notcontains $needed) { throw "release zip is missing $needed" }
           }
           Write-Host "zip contains every file the plugin opens at runtime"

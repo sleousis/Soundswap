@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
     Everything that decides anything lives here: no Dalamud, no game types, no ImGui. It is what the
-    tests cover, and it is what keeps working when the game patches.
+    tests cover, and it is what keeps working when the game patches. Every package here is managed code
+    (no native audio libraries), so it builds and tests anywhere .NET runs.
   -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -10,5 +11,32 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Soundswap.Core</RootNamespace>
     <AssemblyName>Soundswap.Core</AssemblyName>
+    <!-- For the pinned channel pointers handed to soundswap_vorbis.dll. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      The reference libvorbis, built from pinned Xiph sources by tools/build-vorbis.cmd (not committed). It rides
+      along to every project that references Core: the plugin's zip and the tests. Without it, encoding falls back
+      to the managed encoder, which handles stereo only.
+    -->
+    <None Include="native\win-x64\soundswap_vorbis.dll" Condition="Exists('native\win-x64\soundswap_vorbis.dll')" Link="soundswap_vorbis.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WAV, AIFF, MP3 framing and resampling. -->
+    <PackageReference Include="NAudio.Core" Version="3.1.0" />
+    <!-- MP3 frame decoding, pure managed. -->
+    <PackageReference Include="NLayer" Version="3.0.0" />
+    <PackageReference Include="NLayer.NAudioSupport" Version="3.0.0" />
+    <!-- Ogg Vorbis decoding (your files and the game's own music). -->
+    <PackageReference Include="NVorbis" Version="0.10.5" />
+    <!-- Ogg Vorbis encoding, a managed port of libvorbis. -->
+    <PackageReference Include="OggVorbisEncoder" Version="1.2.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Soundswap.Core.Tests" />
+  </ItemGroup>
 </Project>

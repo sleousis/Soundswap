@@ -8,3 +8,6 @@ obj/
 TestResults/
 artifacts/
 packages.lock.json
+
+# Built by tools/build-vorbis.cmd from pinned Xiph sources
+src/Soundswap.Core/native/

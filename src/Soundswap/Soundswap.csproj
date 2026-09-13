@@ -6,12 +6,17 @@
     <!-- What players see. AssemblyName below is the InternalName Dalamud tracks the plugin by: pick it once. -->
     <Name>Soundswap</Name>
     <Punchline>Swap the game's music for your own songs, right in game.</Punchline>
-    <Description>What the plugin does, in a short paragraph players will read in the installer.
+    <Description>Make a music mod in a minute, without leaving the game. Requires Penumbra.
+
+- Pick any of the game's songs from the list (names come from Orchestrion's song list), or press Replace on what is playing now.
+- Drop in your own song: MP3, WAV, OGG, FLAC, M4A, AAC, MP4, WMA and more. Soundswap converts it the way the game stores music, matches its volume to the song it replaces and sets up the loop.
+- Layered songs (the ones the game fades between during a fight) get a choice per layer: your song, silence, or the game's own layer.
+- Build &amp; install puts the mod in Penumbra and switches it on; with Orchestrion installed, Play in game plays it straight away. Or export a .pmp to share.
 
 Commands: /soundswap</Description>
     <RepoUrl>https://github.com/sleousis/Soundswap</RepoUrl>
     <IconUrl>https://raw.githubusercontent.com/sleousis/Soundswap/main/src/Soundswap/images/icon.png</IconUrl>
-    <Tags>qol</Tags>
+    <Tags>penumbra;music;bgm;modding;orchestrion</Tags>
     <RootNamespace>Soundswap</RootNamespace>
     <AssemblyName>Soundswap</AssemblyName>
     <LangVersion>14.0</LangVersion>
@@ -30,8 +35,22 @@ Commands: /soundswap</Description>
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      No Penumbra.Api package: since 5.19 its subscribers run on the Luna library, whose logging dependency
+      can't be resolved from a plugin's load context, so the plugin failed to start. Penumbra is called over its
+      raw IPC labels instead (Integrations/PenumbraBridge.cs), as Dawntrail Ready does.
+    -->
+    <!-- Windows' own decoders (Media Foundation) for M4A, AAC, MP4, WMA, FLAC. -->
+    <PackageReference Include="NAudio.Wasapi" Version="3.1.0" />
+    <!-- WaveOutEvent for previews, driven from Soundswap's own audio thread (see PreviewPlayer). -->
+    <PackageReference Include="NAudio.WinMM" Version="3.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Release notes live in one file; the "what's new" text can read them from here at runtime. -->
     <EmbeddedResource Include="..\..\CHANGELOG.md" LogicalName="Soundswap.CHANGELOG.md" Visible="false" />
+    <!-- Song names from the Orchestrion plugin (MIT), used when Orchestrion isn't installed. -->
+    <EmbeddedResource Include="Data\*.csv" LogicalName="Soundswap.Data.%(Filename).csv" />
     <Content Include="images\*.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Visible>true</Visible>
