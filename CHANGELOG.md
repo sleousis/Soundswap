@@ -3,6 +3,10 @@
 Each release's section is shown in Dalamud's plugin installer and on the GitHub release page. The release
 workflow refuses a tag whose version has no section here.
 
+## 0.1.1
+
+- A new logo, drawn to the same rules as Gleam's and Dawntrail Ready's so the three plugins look like one family. Nothing else changes.
+
 ## 0.1.0
 
 - Make a music mod without leaving the game: pick any of the game's songs, drop in your own, and Build & install puts it in Penumbra and switches it on.
