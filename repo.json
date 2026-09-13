@@ -3,7 +3,7 @@
     "Author": "Raiden Shinryu",
     "Name": "Soundswap",
     "InternalName": "Soundswap",
-    "AssemblyVersion": "0.1.1.0",
+    "AssemblyVersion": "0.1.2.0",
     "Description": "Make a music mod in a minute, without leaving the game. Requires Penumbra.\n\n- Pick any of the game's songs from the list (names come from Orchestrion's song list), or press Replace on what is playing now.\n- Drop in your own song: MP3, WAV, OGG, FLAC, M4A, AAC, MP4, WMA and more. Soundswap converts it the way the game stores music, matches its volume to the song it replaces and sets up the loop.\n- Layered songs (the ones the game fades between during a fight) get a choice per layer: your song, silence, or the game's own layer.\n- Build & install puts the mod in Penumbra and switches it on; with Orchestrion installed, Play in game plays it straight away. Or export a .pmp to share.\n\nCommands: /soundswap",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/sleousis/Soundswap",
@@ -22,13 +22,13 @@
     "IconUrl": "https://raw.githubusercontent.com/sleousis/Soundswap/main/src/Soundswap/images/icon.png",
     "Punchline": "Swap the game's music for your own songs, right in game.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/sleousis/Soundswap/releases/download/v0.1.1/Soundswap.zip",
-    "DownloadLinkUpdate": "https://github.com/sleousis/Soundswap/releases/download/v0.1.1/Soundswap.zip",
-    "DownloadLinkTesting": "https://github.com/sleousis/Soundswap/releases/download/v0.1.1/Soundswap.zip",
+    "DownloadLinkInstall": "https://github.com/sleousis/Soundswap/releases/download/v0.1.2/Soundswap.zip",
+    "DownloadLinkUpdate": "https://github.com/sleousis/Soundswap/releases/download/v0.1.2/Soundswap.zip",
+    "DownloadLinkTesting": "https://github.com/sleousis/Soundswap/releases/download/v0.1.2/Soundswap.zip",
     "IsHide": false,
     "IsTestingExclusive": false,
     "DownloadCount": 0,
-    "LastUpdate": 1789308784,
-    "Changelog": "- A new logo, drawn to the same rules as Gleam's and Dawntrail Ready's so the three plugins look like one family. Nothing else changes."
+    "LastUpdate": 1789309249,
+    "Changelog": "- A refined logo: the note has a thin stem and flag, so it reads as a note instead of a blob. Nothing else changes."
   }
 ]
