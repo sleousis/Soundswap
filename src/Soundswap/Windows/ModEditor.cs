@@ -26,6 +26,9 @@ public sealed class ModEditor(Studio studio, FileDialogManager dialogs, IDragDro
     public void Draw(Vector2 size)
     {
         var barH = ImGui.GetFrameHeight() * 2 + 30 * Ui.Scale;
+        // This sits beside the song list. Without a group, the bar would start a new line under that full-height
+        // list, below the bottom of the window, where nobody could see or press it.
+        using var group = ImRaii.Group();
         using (var child = ImRaii.Child("##editor", size with { Y = size.Y - barH }, false))
         {
             if (child) Songs();
