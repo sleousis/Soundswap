@@ -3,6 +3,10 @@
 Each release's section is shown in Dalamud's plugin installer and on the GitHub release page. The release
 workflow refuses a tag whose version has no section here.
 
+## 0.1.2
+
+- A refined logo: the note has a thin stem and flag, so it reads as a note instead of a blob. Nothing else changes.
+
 ## 0.1.1
 
 - A new logo, drawn to the same rules as Gleam's and Dawntrail Ready's so the three plugins look like one family. Nothing else changes.
